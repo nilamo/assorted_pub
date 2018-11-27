@@ -3,6 +3,18 @@
 # DO NOT share your key with anyone
 API_KEY = ""
 
+# ignore users in hosp that only have a few minutes left (they can just wait)
+MINIMUM_MINUTES_IN_HOSP = 5
+
+# if someone's in hosp overseas, should we still open them up?
+# unless you actually go there, you can't help them, so...
+INCLUDE_USERS_OVERSEAS = True
+
+# stop running once someone needing help is found
+# if false, it'll continue running forever,
+# until you manually kill it from the command line via ctrl-c
+STOP_AT_FIRST_FOUND = True
+
 # to avoid getting your ip blocked, the torn api doesn't want you making more than 100 requests per minute
 # if you're bold, feel free to make requests more frequently
 SECONDS_PER_MINUTE = 60
@@ -38,7 +50,7 @@ ThingsToTrack = [
     User(1563002), # __Franky__
     User(2154292), # Calla
     User(2163874), # Herpes
-
+#][
     Faction(36891), # Flatline
     Faction(11376), # Buttgrass
     Faction(9201), # axiom
@@ -58,6 +70,7 @@ import requests
 
 
 # bulit into python
+from datetime import datetime
 import sys
 import time
 import webbrowser
@@ -82,12 +95,13 @@ API = TornAPI(API_KEY)
 
 def lookup_users(user_ids):
     for user_id in user_ids:
-        data = API.get(f"https://api.torn.com/user/{user_id}?selections=basic&key={{0}}")
+        data = API.get(f"https://api.torn.com/user/{user_id}?selections=profile&key={{0}}")
         yield data
 
 def lookup_faction(faction_id):
     data = API.get(f"https://api.torn.com/faction/{faction_id}?selections=basic&key={{0}}")
-    print(f"Searching through members of faction: {data['name']}")
+    uri = f"https://www.torn.com/factions.php?step=profile&ID={faction_id}"
+    print(f"\nSearching through faction: {data['name']} - {uri}")
     members = data["members"]
 
     yield from lookup_users(members.keys())
@@ -106,20 +120,46 @@ def main():
             # For in hosp, the first will be "In hospital for N mins",
             # and the second will be the reason why
             # ie: "Burned in an arson attempt"
-            status = user["status"][0]
-            
-            if "hospital" in status:
-                print("!", end="")
-                webbrowser.open(f"https://www.torn.com/profiles.php?XID={user['player_id']}#/")
-            else:
+
+            states = user["states"]
+            timestamp = states["hospital_timestamp"]
+            if not timestamp:
+                # not in hosp
                 print(".", end="")
+            else:
+                out_of_hosp = datetime.fromtimestamp(timestamp)
+                time_until_out = (out_of_hosp - datetime.now()).seconds
+                # convert to minutes
+                time_until_out = time_until_out / 60
+                if time_until_out <= MINIMUM_MINUTES_IN_HOSP:
+                    # currently in hosp, but only for a few more minutes
+                    print("#", end="")
+                else:
+                    if "In hospital" not in user["status"][0]:
+                        # in hosp, needs help, but is overseas
+                        print("@", end="")
+                        if INCLUDE_USERS_OVERSEAS:
+                            webbrowser.open(f"https://www.torn.com/profiles.php?XID={user['player_id']}")
+                    else:
+                        # in hosp, needs help
+                        print("!", end="")
+                        webbrowser.open(f"https://www.torn.com/profiles.php?XID={user['player_id']}")
+                    if STOP_AT_FIRST_FOUND:
+                        return True
             sys.stdout.flush()
-        print()
+
+        if isinstance(obj, Faction): 
+            print()
+    return False
 
 if __name__ == "__main__":
     try:
-        main()
+        running = True
+        while running:
+            user_found = main()
+            if STOP_AT_FIRST_FOUND and user_found:
+                running = False
     except KeyboardInterrupt:
         # swallow up ctrl-c for early termination
-        pass
+        print()
         
