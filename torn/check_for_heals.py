@@ -58,8 +58,9 @@ import requests
 
 
 # bulit into python
-import webbrowser
+import sys
 import time
+import webbrowser
 
 class TornAPI:
     def __init__(self, key):
@@ -93,18 +94,27 @@ def lookup_faction(faction_id):
 
 def main():
     for obj in ThingsToTrack:
-        users = lookup_faction(obj.obj_id) if isinstance(obj, Faction) else lookup_users([obj.obj_id])
-        for user in users:
+        thing_id = obj.obj_id
+        func = lookup_faction
+        if isinstance(obj, User):
+            func = lookup_users
+            thing_id = [thing_id]
+
+        for user in func(thing_id):
             # status is a two element array.
             # The first element will normally be "Okay", and the second is almost always blank
             # For in hosp, the first will be "In hospital for N mins",
             # and the second will be the reason why
             # ie: "Burned in an arson attempt"
             status = user["status"][0]
-            print(f"User {user['name']} is currently: {status}.")
             
             if "hospital" in status:
+                print("!", end="")
                 webbrowser.open(f"https://www.torn.com/profiles.php?XID={user['player_id']}#/")
+            else:
+                print(".", end="")
+            sys.stdout.flush()
+        print()
 
 if __name__ == "__main__":
     try:
@@ -112,3 +122,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         # swallow up ctrl-c for early termination
         pass
+        
