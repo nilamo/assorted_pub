@@ -18,6 +18,7 @@ class User(LookupBase): pass
 ThingsToTrack = [
     # TheReformation, check them before any user
     Faction(21687),
+    Faction(15151), # Lifeline (can't heal if we're all out lol)
     
     # these users are next in priority to Reformation
     User(1873683), # Kapten_Klitoris
