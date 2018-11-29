@@ -4,16 +4,16 @@
 API_KEY = ""
 
 # ignore users in hosp that only have a few minutes left (they can just wait)
-MINIMUM_MINUTES_IN_HOSP = 5
+MINIMUM_MINUTES_IN_HOSP = 30
 
 # if someone's in hosp overseas, should we still open them up?
 # unless you actually go there, you can't help them, so...
-INCLUDE_USERS_OVERSEAS = True
+INCLUDE_USERS_OVERSEAS = False
 
 # stop running once someone needing help is found
 # if false, it'll continue running forever,
 # until you manually kill it from the command line via ctrl-c
-STOP_AT_FIRST_FOUND = True
+STOP_AT_FIRST_FOUND = False
 
 # to avoid getting your ip blocked, the torn api doesn't want you making more than 100 requests per minute
 # if you're bold, feel free to make requests more frequently
@@ -21,12 +21,8 @@ SECONDS_PER_MINUTE = 60
 REQUESTS_PER_MINUTE = 100
 TIME_PER_REQUEST = SECONDS_PER_MINUTE / REQUESTS_PER_MINUTE
 
-class LookupBase:
-    def __init__(self, obj_id):
-        self.obj_id = obj_id
-class Faction(LookupBase): pass
-class User(LookupBase): pass
-
+class Faction(int): pass
+class User(int): pass
 ThingsToTrack = [
     # TheReformation, check them before any user
     Faction(21687),
@@ -108,13 +104,12 @@ def lookup_faction(faction_id):
 
 def main():
     for obj in ThingsToTrack:
-        thing_id = obj.obj_id
         func = lookup_faction
         if isinstance(obj, User):
             func = lookup_users
-            thing_id = [thing_id]
+            obj = [obj]
 
-        for user in func(thing_id):
+        for user in func(obj):
             # status is a two element array.
             # The first element will normally be "Okay", and the second is almost always blank
             # For in hosp, the first will be "In hospital for N mins",
